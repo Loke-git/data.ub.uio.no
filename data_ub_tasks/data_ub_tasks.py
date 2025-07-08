@@ -293,7 +293,7 @@ def invalidate_varnish_cache(pattern):
     response = requests.request('BAN', 'http://localhost:6081', headers={'x-invalidate-pattern': pattern})
    #response = requests.request('BAN', 'http://localhost:6081', headers={'X-Ban-Url': pattern})
     #response.raise_for_status()
-    logger.info('Invalidated Varnish cache for Humord')
+    logger.info('Invalidated Varnish cache successfully')
 
 def update_fuseki(config, files):
     """

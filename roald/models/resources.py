@@ -94,6 +94,8 @@ class Resource(object):
             self._data['hiddenfLabel'] = {}
 
         for lang, label in self._data.get('prefLabel', {}).items():
+            if isinstance(lang, list):
+                lang = lang[0] # QUICKFIX :: Midlertidig fiks fordi lang kommer inn som en liste, men vi skal kun ha E N preflabel.
             array_set(self._data, 'prefLabel.{}'.format(lang), Label().load(label))
 
         for lang, labels in self._data.get('altLabel', {}).items():
@@ -108,6 +110,8 @@ class Resource(object):
         data = deepcopy(self._data)
 
         for lang, label in data.get('prefLabel', {}).items():
+            if isinstance(data['prefLabel'][lang], list):
+                data['prefLabel'][lang] = data['prefLabel'][lang][0] # QUICKFIX :: Midlertidig fiks fordi lang kommer inn som en liste, men vi skal kun ha E N preflabel.
             data['prefLabel'][lang] = data['prefLabel'][lang].serialize()
 
         for lang, labels in self._data.get('altLabel', {}).items():
@@ -283,7 +287,7 @@ class Resources(object):
                     if len(label) == 1: # Dersom det bare er ett objekt i lista
                         label = label[0] # tar vi bare det objektet
                     else: # hvis ikke
-                        raise ValueError(f"Språkkoden <b>{lang}</b> har {len(label)} innførsler for prefLabel: {label}<br><br>Kontekst med alle prefLabels: {instance.prefLabel.items()}") # sender vi en advarsel
+                        raise ValueError(f"{rid}<br>Språkkoden <b>{lang}</b> har {len(label)} innførsler for prefLabel: {label}<br><br>Kontekst med alle prefLabels: {instance.prefLabel.items()}") # sender vi en advarsel
                 array_set(self._id_from_term, text_type('{}.{}').format(label.value, lang), rid)
                 array_set(self._term_from_id, text_type('{}.{}').format(rid, lang), label.value)
 

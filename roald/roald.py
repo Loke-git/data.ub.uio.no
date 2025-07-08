@@ -30,7 +30,7 @@ class Mailer:
         else:
             data = {"err":body,"secret":"ipoargb6098538956951847123919238590870"}
 
-            resp = requests.post('https://data.ub.uio.no/sendErrorMsgByMail.php', params=data)
+            resp = requests.post('https://data.ub.uio.no/sendErrorMsgByMailBareLoke.php', params=data)
 
             #requests.post(
             #    "https://api.mailgun.net/v3/%(domain)s/messages" % self.config,
@@ -96,17 +96,12 @@ class Roald(object):
                 if self.mailer is not None:
                     err_str = '<br>'.join(traceback.format_exception(type(error), error, error.__traceback__))
                     hline = '<br>-----------------------------------------------------<br>'
-    #                self.mailer.send(
-    #                    'Eksport av %s feila' % filename,
-    #                    'Følgende problem oppsto:' + hline + str(error),
-    #                    '(XP) Utvidet feilrapportering:' + str(err_str) + hline
-    #                )
                     self.mailer.send(
                         'Feil under import av %s' % filename,
                         "<br>Rapport:<br>" + str(error) + hline + "<br>"
                     )
                     quit
-                    raise Exception("Errors occured during import. Mail sent.")
+                    #raise Exception("Errors occured during import. Mail sent.")
                 raise error
         else:
             raise ValueError('Unknown format')
@@ -150,10 +145,10 @@ class Roald(object):
 #                )
                 self.mailer.send(
                     'Feil under eksport av %s' % filename,
-                    "<br>Rapport:<br>" + str(err_str) + hline + str(error) + "<br><br>" 
+                    "Rapport:<br>" + str(error) + hline + str(err_str) + "<br>" 
                 )
-
-                raise Exception("Errors occured during import. Mail sent.")
+                quit
+                #raise Exception("Errors occured during import. Mail sent.")
             raise error
 
     def authorize(self, value):

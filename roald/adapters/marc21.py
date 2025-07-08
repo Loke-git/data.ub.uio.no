@@ -27,7 +27,8 @@ lang3Map = {
     'en': 'eng',
     'la': 'lat',
     'se': 'sme',
-    'fkv': 'fkv' 
+    'fkv': 'fkv',
+    'sma': 'sma'
 }
 
 
@@ -84,13 +85,13 @@ class Marc21(Adapter):
             record.clear()
         
         if len(errors) != 0:
-            hline = '\n\n-----------------------------------------------------\n\n'
-            if self.mailer is not None:
-                self.mailer.send(
-                    'Importen av %s feila' % self.vocabulary_code,
-                    'Følgende poster har problemer:' + hline + hline.join(errors) + hline 
-                )
-            raise Exception("Errors occured during import. Mail sent.")
+            hline = '<br>-----------------------------------------------------<br>'
+            #if self.mailer is not None:
+            #    self.mailer.send(
+            #        'Importen av %s feila' % self.vocabulary_code,
+            #        'Følgende poster har problemer:' + hline + hline.join(errors) + hline 
+            #    )
+            raise Exception("Import feilet. Feilmelding følger." + hline + hline.join(errors))
 
         self.vocabulary.resources.load(resources)
 
@@ -433,7 +434,8 @@ class Marc21(Adapter):
 
                 else:  # Not a compound heading
                     for lang, term in resource.prefLabel.items():
-
+                        if isinstance(term, list): # QUICKFIX / PATCH / KJAPP FIKS! fordi preferred term som ikke er eng eller nob kommer i en liste. vil det ha problemer? øhmm... neiii. skal jo være EN preflabel pr språk
+                            term = term[0]
                         if lang == self.language.alpha2:
                             tag = self.tag_from_type(100, resourceType)
                         else:
@@ -509,15 +511,18 @@ class Marc21(Adapter):
 
                     if not has_member_of:
                         for value in broader:
-                            rel = resources.get(id=value)
-                            rel_type = rel['type'][0]
-                            if rel_type in tags:
-                                with builder.datafield(tag=tags[rel_type], ind1=' ', ind2=' '):
-                                    builder.subfield(rel.prefLabel[self.language.alpha2].value, code='a')
-                                    builder.subfield('g', code='w')  # Ref: http://www.loc.gov/marc/authority/adtracing.html
-                                    builder.subfield(self.global_cn(value), code='0')
-                            else:
-                                logger.warn('Cannot serialize "%s" <broader> "%s", because the latter has a unknown type.' % (value, rel['id']))
+                            try:
+                                rel = resources.get(id=value)
+                                rel_type = rel['type'][0]
+                                if rel_type in tags:
+                                    with builder.datafield(tag=tags[rel_type], ind1=' ', ind2=' '):
+                                        builder.subfield(rel.prefLabel[self.language.alpha2].value, code='a')
+                                        builder.subfield('g', code='w')  # Ref: http://www.loc.gov/marc/authority/adtracing.html
+                                        builder.subfield(self.global_cn(value), code='0')
+                                else:
+                                    logger.warn('Cannot serialize "%s" <broader> "%s", because the latter has a unknown type.' % (value, rel['id']))
+                            except Exception as err:
+                                raise Exception(f"{str(resource.get('id'))} har feil i overordnet begrep.<br>Fant ingen relatert term som svarer til {str(value)}!")
 
                     for value in self.narrower.get(resource['id'], []):
                         rel = resources.get(id=value)
@@ -651,25 +656,30 @@ class Marc21(Adapter):
                     elif sf.get('9') == 'nno':
                         obj.add('altLabel.nn', Label(sf['a'])) # Nynorsk altLabel.
                     elif sf.get('9') == 'sme1':
-                        obj.add('prefLabel.se', Label(sf['a'])) # Nord-Samisk.
+                        obj.add('prefLabel.se', Label(sf['a'])) # Nordsamisk pref
                     elif sf.get('9') == 'sme':
-                        obj.add('altLabel.se', Label(sf['a'])) # Nord-Samisk.
+                        obj.add('altLabel.se', Label(sf['a'])) # Nordsamisk alt
                     elif sf.get('9') == 'fkv1':
-                        obj.add('prefLabel.fkv', Label(sf['a'])) # Kvensk
+                        obj.add('prefLabel.fkv', Label(sf['a'])) # Kvensk pref
                     elif sf.get('9') == 'fkv':
-                        obj.add('altLabel.fkv', Label(sf['a'])) # Kvensk
+                        obj.add('altLabel.fkv', Label(sf['a'])) # Kvensk alt
                     elif sf.get('9') == 'lat1':
-                        obj.add('prefLabel.la', Label(sf['a'])) # Latin
-                        logger.info(obj)
+                        obj.add('prefLabel.la', Label(sf['a'])) # Latin pref
                     elif sf.get('9') == 'lat':
-                        obj.add('altLabel.la', Label(sf['a'])) # Latin
+                        obj.add('altLabel.la', Label(sf['a'])) # Latin alt
                     else:
-                        obj.add('altLabel.nb', Label(sf['a'])) # Såkalt fallback.
+                        obj.add('altLabel.nb', Label(sf['a'])) # Setter alt annet til norsk bokmål alt.
                 elif tag.startswith('5'):
                     if sf.get('w') == 'g':
-                        obj.add('broader', self.validate_identifier(sf['0'].replace('(NO-TrBIB)', ''), '5XX$0'))
+                        try:
+                            obj.add('broader', self.validate_identifier(sf['0'].replace('(NO-TrBIB)', ''), '5XX$0'))
+                        except Exception as err:
+                            raise Exception(f"Feil i felt 5XX - overordnet begrep.")
                     else:
-                        obj.add('related', self.validate_identifier(sf['0'].replace('(NO-TrBIB)', ''), '5XX$0'))
+                        try:
+                            obj.add('related', self.validate_identifier(sf['0'].replace('(NO-TrBIB)', ''), '5XX$0'))
+                        except Exception as err:
+                            raise Exception(f"Feil i felt 5XX - relatert begrep.")
                 elif tag == '667':
                     obj.add('editorialNote', sf['a'])
                 elif tag == '677':
@@ -677,8 +687,8 @@ class Marc21(Adapter):
 
         except Exception as err:
             print("FAILED TO IMPORT %s" % rec_id)
-            err_str = ''.join(traceback.format_exception(type(err), err, err.__traceback__))
-            return None, "%s could not be imported:\n\n%s" % (rec_id, err_str)
+            err_str = '-'.join(traceback.format_exception(type(err), err, err.__traceback__))
+            return None, "<b>%s</b>: %s<br><br><i>%s</i>" % (rec_id, err, err_str)
 
         # -------------
         # TODO

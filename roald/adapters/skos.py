@@ -270,6 +270,8 @@ class Skos(Adapter):
             graph.add((uri, SKOS.inScheme, scheme_uri))
 
         for lang, term in resource.get('prefLabel', {}).items():
+            if isinstance(term, list): # QUICKFIX / PATCH / KJAPP FIKS! fordi preferred term som ikke er eng eller nob kommer i en liste. vil det ha problemer? øhmm... neiii. skal jo være EN preflabel pr språk
+                term = term[0]
             graph.add((uri, SKOS.prefLabel, Literal(term.value, lang=lang)))
 
             if term.hasAcronym:
